@@ -1,20 +1,22 @@
 #include <amp.h>
+#include <amp_math.h>
 #include <cstdint>
 #include <iostream>
 #include <fstream>
 #include <cmath>
 
 using namespace std;
-using namespace Concurrency;
+using namespace concurrency;
+using namespace concurrency::fast_math;
 
 static const int Width = 640;
 static const int Height = 480;
 static const int TileWidth = 16;
 static const int TileHeight = 16;
 
-template<typename T> T Square(T x) restrict(direct3d, cpu) { return x * x; }
-template<typename T> T Clamp(T x, T a, T b) restrict(direct3d, cpu) { return x < a ? a : (x < b ? x : b); }
-template<typename T> T Saturate(T x) restrict(direct3d, cpu) { return Clamp(x, T(0), T(1)); }
+template<typename T> T Square(T x) restrict(amp, cpu) { return x * x; }
+template<typename T> T Clamp(T x, T a, T b) restrict(amp, cpu) { return x < a ? a : (x < b ? x : b); }
+template<typename T> T Saturate(T x) restrict(amp, cpu) { return Clamp(x, T(0), T(1)); }
 
 const float PI = 3.141592654f;
 
@@ -26,7 +28,7 @@ struct Vec3 {
 	float x, y, z;
 };
 
-inline Vec3 MakeVec3(float x, float y, float z) restrict(direct3d, cpu) {
+inline Vec3 MakeVec3(float x, float y, float z) restrict(amp, cpu) {
 	Vec3 v;
 	v.x = x; v.y = y; v.z = z;
 	return v;
@@ -36,7 +38,7 @@ struct Vec4 {
 	float x, y, z, w;
 };
 
-inline Vec4 MakeVec4(float x, float y, float z, float w) restrict(direct3d, cpu) {
+inline Vec4 MakeVec4(float x, float y, float z, float w) restrict(amp, cpu) {
 	Vec4 v;
 	v.x = x; v.y = y; v.z = z; v.w = w;
 	return v;
@@ -45,52 +47,52 @@ inline Vec4 MakeVec4(float x, float y, float z, float w) restrict(direct3d, cpu)
 class Vector3
 {
 public:
-	Vector3(const Vec3& v_) restrict(direct3d, cpu) : v(v_) {}
-	explicit Vector3(float xyz) restrict(direct3d, cpu) : v(MakeVec3(xyz, xyz, xyz)) {}
-	Vector3(float x, float y, float z) restrict(direct3d, cpu) : v(MakeVec3(x, y, z)) {}
+	Vector3(const Vec3& v_) restrict(amp, cpu) : v(v_) {}
+	explicit Vector3(float xyz) restrict(amp, cpu) : v(MakeVec3(xyz, xyz, xyz)) {}
+	Vector3(float x, float y, float z) restrict(amp, cpu) : v(MakeVec3(x, y, z)) {}
 
-	float x() const restrict(direct3d, cpu) { return v.x; }
-	float y() const restrict(direct3d, cpu) { return v.y; }
-	float z() const restrict(direct3d, cpu) { return v.z; }
+	float x() const restrict(amp, cpu) { return v.x; }
+	float y() const restrict(amp, cpu) { return v.y; }
+	float z() const restrict(amp, cpu) { return v.z; }
 
-	operator Vec3() const restrict(direct3d, cpu) { return v; }
+	operator Vec3() const restrict(amp, cpu) { return v; }
 
-	Vector3& operator+=(const Vector3& rhs) restrict(direct3d, cpu) { v.x += rhs.x(); v.y += rhs.y(); v.z += rhs.z(); return *this; }
-	Vector3& operator-=(const Vector3& rhs) restrict(direct3d, cpu) { v.x -= rhs.x(); v.y -= rhs.y(); v.z -= rhs.z(); return *this; }
-	Vector3& operator*=(float rhs) restrict(direct3d, cpu)  { v.x *= rhs; v.y *= rhs; v.z *= rhs; return *this; }
+	Vector3& operator+=(const Vector3& rhs) restrict(amp, cpu) { v.x += rhs.x(); v.y += rhs.y(); v.z += rhs.z(); return *this; }
+	Vector3& operator-=(const Vector3& rhs) restrict(amp, cpu) { v.x -= rhs.x(); v.y -= rhs.y(); v.z -= rhs.z(); return *this; }
+	Vector3& operator*=(float rhs) restrict(amp, cpu)  { v.x *= rhs; v.y *= rhs; v.z *= rhs; return *this; }
 
 private:
 	Vec3 v;
 };
 
-inline Vector3 operator+(Vector3 lhs, const Vector3& rhs) restrict(direct3d, cpu) { lhs += rhs; return lhs; }
-inline Vector3 operator-(Vector3 lhs, const Vector3& rhs) restrict(direct3d, cpu) { lhs -= rhs; return lhs; }
-inline Vector3 operator*(Vector3 lhs, float rhs) restrict(direct3d, cpu) { lhs *= rhs; return lhs; }
-inline Vector3 operator*(float lhs, Vector3 rhs) restrict(direct3d, cpu) { rhs *= lhs; return rhs; }
+inline Vector3 operator+(Vector3 lhs, const Vector3& rhs) restrict(amp, cpu) { lhs += rhs; return lhs; }
+inline Vector3 operator-(Vector3 lhs, const Vector3& rhs) restrict(amp, cpu) { lhs -= rhs; return lhs; }
+inline Vector3 operator*(Vector3 lhs, float rhs) restrict(amp, cpu) { lhs *= rhs; return lhs; }
+inline Vector3 operator*(float lhs, Vector3 rhs) restrict(amp, cpu) { rhs *= lhs; return rhs; }
 
-inline float Dot(const Vector3& a, const Vector3& b) restrict(direct3d, cpu) { return a.x() * b.x() + a.y() * b.y() + a.z() * b.z(); }
-inline Vector3 Normalize(const Vector3& v) restrict(direct3d) { return v * rsqrt(Dot(v, v)); }
+inline float Dot(const Vector3& a, const Vector3& b) restrict(amp, cpu) { return a.x() * b.x() + a.y() * b.y() + a.z() * b.z(); }
+inline Vector3 Normalize(const Vector3& v) restrict(amp) { return v * rsqrt(Dot(v, v)); }
 inline Vector3 Normalize(const Vector3& v) restrict(cpu) { return v * (1.0f / sqrt(Dot(v, v))); }
 
 struct Rotor
 {
-	Rotor(const Vec4& v_) restrict(direct3d, cpu) : v(v_) {}
-	Rotor(float x, float y, float z, float w) restrict(direct3d, cpu) : v(MakeVec4(x, y, z, w)) {}
+	Rotor(const Vec4& v_) restrict(amp, cpu) : v(v_) {}
+	Rotor(float x, float y, float z, float w) restrict(amp, cpu) : v(MakeVec4(x, y, z, w)) {}
 
-	Rotor(const Vector3& axis, float angle) restrict(direct3d, cpu) {
+	Rotor(const Vector3& axis, float angle) restrict(amp, cpu) {
 		const auto halfAngle = 0.5f * angle;
 		const auto xyz = Vector3(axis.x(), axis.y(), axis.z()) * -sin(halfAngle);
 		v = MakeVec4(xyz.x(), xyz.y(), xyz.z(), cos(halfAngle));
 	}
 
-	float x() const restrict(direct3d, cpu) { return v.x; }
-	float y() const restrict(direct3d, cpu) { return v.y; }
-	float z() const restrict(direct3d, cpu) { return v.z; }
-	float w() const restrict(direct3d, cpu) { return v.w; }
+	float x() const restrict(amp, cpu) { return v.x; }
+	float y() const restrict(amp, cpu) { return v.y; }
+	float z() const restrict(amp, cpu) { return v.z; }
+	float w() const restrict(amp, cpu) { return v.w; }
 
-	operator Vec4() const restrict(direct3d, cpu) { return v; }
+	operator Vec4() const restrict(amp, cpu) { return v; }
 
-	Rotor& operator*=(const Rotor& rhs) restrict(direct3d, cpu) {
+	Rotor& operator*=(const Rotor& rhs) restrict(amp, cpu) {
 		*this = Rotor(w() * rhs.x() + rhs.w() * x() - y() * rhs.z() + z() * rhs.y(),
 					  w() * rhs.y() + rhs.w() * y() + x() * rhs.z() - z() * rhs.x(),
 					  w() * rhs.z() + rhs.w() * z() - x() * rhs.y() + y() * rhs.x(),
@@ -102,12 +104,12 @@ private:
 	Vec4 v;
 };
 
-inline Rotor operator*(Rotor lhs, const Rotor& rhs) restrict(direct3d, cpu) {
+inline Rotor operator*(Rotor lhs, const Rotor& rhs) restrict(amp, cpu) {
 	lhs *= rhs;
 	return lhs;
 }
 
-inline Vector3 Rotate(const Vector3& v, const Rotor& r) restrict(direct3d, cpu) {
+inline Vector3 Rotate(const Vector3& v, const Rotor& r) restrict(amp, cpu) {
 	const auto x2 = Square(r.x());
 	const auto y2 = Square(r.y());
 	const auto z2 = Square(r.z());
@@ -127,17 +129,17 @@ inline Vector3 Rotate(const Vector3& v, const Rotor& r) restrict(direct3d, cpu) 
 class Sphere
 {
 public:
-	Sphere(const Vector3& center_, float radius_) restrict(direct3d, cpu) : center(center_), radius(radius_) {}
+	Sphere(const Vector3& center_, float radius_) restrict(amp, cpu) : center(center_), radius(radius_) {}
 
-	Vector3 GetCenter() const restrict(direct3d, cpu) { return center; }
-	float GetRadius() const restrict(direct3d, cpu) { return radius; }
+	Vector3 GetCenter() const restrict(amp, cpu) { return center; }
+	float GetRadius() const restrict(amp, cpu) { return radius; }
 
 private:
 	Vec3 center;
 	float radius;
 };
 
-float RayIntersectSphere(const Vector3& rayStart, const Vector3& rayDirection, const Sphere& sphere) restrict(direct3d, cpu)
+float RayIntersectSphere(const Vector3& rayStart, const Vector3& rayDirection, const Sphere& sphere) restrict(amp, cpu)
 {
 	const auto v = rayStart - sphere.GetCenter();
 	const auto a = Dot(rayDirection, rayDirection);
@@ -186,9 +188,9 @@ public:
 		levelColors[4] = MakeVec3(0.1f, 1.0f, 1.0f);
 	}
 
-	float RayIntersect(const Vector3& rayStart, const Vector3& rayDirection, Vector3& hitCenter, int& hitLevel) const restrict(direct3d, cpu);
+	float RayIntersect(const Vector3& rayStart, const Vector3& rayDirection, Vector3& hitCenter, int& hitLevel) const restrict(amp, cpu);
 
-	Vector3 GetLevelColor(int level) const restrict(direct3d, cpu) { return levelColors[level % MaxDepth]; }
+	Vector3 GetLevelColor(int level) const restrict(amp, cpu) { return levelColors[level % MaxDepth]; }
 
 private:
 	static const int MaxDepth = 5;
@@ -211,12 +213,12 @@ public:
 		int level;
 	};
 
-	ChildStack() restrict(direct3d, cpu) : top(0) {}
+	ChildStack() restrict(amp, cpu) : top(0) {}
 
-	void Push(const ChildInfo& childInfo) restrict(direct3d, cpu) { stack[top++] = childInfo; }
-	ChildInfo Pop() restrict(direct3d, cpu) { return stack[--top]; }
-	bool Empty() const restrict(direct3d, cpu) { return top == 0; }
-	bool Full() const restrict(direct3d, cpu) { return top == StackSize; }
+	void Push(const ChildInfo& childInfo) restrict(amp, cpu) { stack[top++] = childInfo; }
+	ChildInfo Pop() restrict(amp, cpu) { return stack[--top]; }
+	bool Empty() const restrict(amp, cpu) { return top == 0; }
+	bool Full() const restrict(amp, cpu) { return top == StackSize; }
 
 private:
 	static const int StackSize = 64;
@@ -224,7 +226,7 @@ private:
 	int top;
 };
 
-float SphereFlake::RayIntersect(const Vector3& rayStart, const Vector3& rayDirection, Vector3& hitCenter, int& hitLevel) const restrict(direct3d, cpu) {
+float SphereFlake::RayIntersect(const Vector3& rayStart, const Vector3& rayDirection, Vector3& hitCenter, int& hitLevel) const restrict(amp, cpu) {
 	ChildStack::ChildInfo ci;
 	ci.sphereCenter = Vector3(0.0f);
 	ci.sphereRadius = radius;
@@ -264,17 +266,17 @@ float SphereFlake::RayIntersect(const Vector3& rayStart, const Vector3& rayDirec
 	return res;
 }
 
-uint32_t MakeRGB(int r, int g, int b) restrict(direct3d, cpu)
+uint32_t MakeRGB(int r, int g, int b) restrict(amp, cpu)
 {
 	return ((r & 0xff) << 24) | ((g & 0xff) << 16) | ((b & 0xff) << 8);
 }
 
-uint32_t MakeRGB(float r, float g, float b) restrict(direct3d, cpu)
+uint32_t MakeRGB(float r, float g, float b) restrict(amp, cpu)
 {
 	return MakeRGB(int(Saturate(r) * 255.f), int(Saturate(g) * 255.f), int(Saturate(b) * 255.f));
 }
 
-uint32_t MakeRGB(Vector3 v) restrict(direct3d, cpu)
+uint32_t MakeRGB(Vector3 v) restrict(amp, cpu)
 {
 	return MakeRGB(v.x(), v.y(), v.z());
 }
@@ -311,7 +313,7 @@ void WritePPM(const char* filename, const vector<uint32_t>& imageData, int image
 	}
 }
 
-inline uint32_t TraceRay(const Vector3& rayStart, const Vector3& rayDirection, const SphereFlake& sphereFlake) restrict(direct3d, cpu)
+inline uint32_t TraceRay(const Vector3& rayStart, const Vector3& rayDirection, const SphereFlake& sphereFlake) restrict(amp, cpu)
 {
 	Sphere s(Vector3(0.f), 5.f);
 	Vector3 hitCenter(0.0f);
@@ -331,7 +333,7 @@ inline uint32_t TraceRay(const Vector3& rayStart, const Vector3& rayDirection, c
 	}
 }
 
-inline uint32_t RaytraceSphereflake(int x, int y, const SphereFlake& sphereFlake) restrict (direct3d, cpu)
+inline uint32_t RaytraceSphereflake(int x, int y, const SphereFlake& sphereFlake) restrict (amp, cpu)
 {
 	const auto viewWidth = 20.0f;
 	const auto viewHeight = viewWidth * float(Height) / float(Width);
@@ -348,10 +350,10 @@ vector<uint32_t> RaytraceSphereflakeGPU()
 	SphereFlake sphereFlake;
 
 	parallel_for_each(
-		imageView.grid.tile<TileWidth, TileHeight>(),
-		[=](tiled_index<TileWidth, TileHeight> idx) mutable restrict(direct3d)
+		imageView.extent.tile<TileWidth, TileHeight>(),
+		[=](tiled_index<TileWidth, TileHeight> idx) restrict(amp)
 		{
-			imageView[idx.global] = RaytraceSphereflake(idx.get_x(), idx.get_y(), sphereFlake);
+			imageView[idx.global] = RaytraceSphereflake(idx.global[0], idx.global[1], sphereFlake);
 		}
 	);
 
